@@ -1,0 +1,194 @@
+*lvim-jump.txt*    Label-based motion: search, labels, jump
+
+==============================================================================
+CONTENTS                                                *lvim-jump*
+
+  1. Introduction ........................... |lvim-jump-intro|
+  2. Setup .................................. |lvim-jump-setup|
+  3. Jump mode .............................. |lvim-jump-jump|
+  4. Char motions ........................... |lvim-jump-char|
+  5. Treesitter select ...................... |lvim-jump-ts|
+  6. Remote operator jump ................... |lvim-jump-remote|
+  7. API .................................... |lvim-jump-api|
+  8. Command ................................ |lvim-jump-command|
+  9. Highlights ............................. |lvim-jump-highlights|
+
+==============================================================================
+1. INTRODUCTION                                         *lvim-jump-intro*
+
+Type a few characters of where you want to go: every match in the visible
+windows is live-highlighted, single-key LABELS overlay the character after
+each match, one label press lands you there. Labels are non-ambiguous (a
+character that could continue the search is never a label) and stable (a
+match that survives narrowing keeps its label). The searched windows dim for
+the duration; a jump pushes a jumplist entry, so CTRL-O returns.
+
+There are no popups: the whole UI is extmark overlays over the real buffers
+plus a modal key loop. Highlights self-theme from the lvim-utils palette and
+re-derive on every colorscheme / palette change.
+
+Requires Neovim >= 0.10 and lvim-utils. Treesitter select works with any
+buffer that has an attached parser (provisioned by lvim-ts in the lvim-tech
+stack).
+
+==============================================================================
+2. SETUP                                                *lvim-jump-setup*
+
+Full default configuration: >lua
+
+  require("lvim-jump").setup({
+      labels = "asdfghjklqwertyuiopzxcvbnm",
+      multi_window = true,     -- search every non-floating window (normal mode)
+      smart_case = true,       -- lowercase = ignore case; uppercase = exact
+      jump = {
+          autojump_single = true, -- jump when narrowing leaves ONE match
+          offset = 0,             -- column offset at the landing position
+          inclusive = false,      -- o-mode: force the motion inclusive (|o_v|)
+      },
+      keys = {
+          accept = "<CR>",     -- jump to the current (nearest) match
+          next = "<Tab>",      -- cycle the current match forward
+          prev = "<S-Tab>",    -- cycle backward
+          back = "<BS>",       -- delete the last pattern character
+      },
+      char_motions = {
+          enabled = true,      -- multi-line, labeled f/F/t/T (and ;/,)
+          -- keys never used as char-motion labels (they keep their native
+          -- meaning right after a motion); f/t/F/T/;/, always excluded too
+          label_exclude = "hjkliardc",
+      },
+      ts = { enabled = true },
+      remote = { enabled = true },
+      dim = {
+          enabled = true,      -- dim searched windows during a jump/select
+          amount = 0.45,       -- mute fraction toward the background
+      },
+      mappings = {             -- false = no default map (use <Plug>/API)
+          jump = "s",          -- n/x/o
+          ts = "S",            -- n/x
+          remote = "r",        -- o
+      },
+      prompt = {
+          enabled = true,      -- echo pattern + match count in the cmdline
+          icon = "➤",
+      },
+  })
+<
+==============================================================================
+3. JUMP MODE                                            *lvim-jump-jump*
+
+`s` (normal, visual, operator-pending) starts the modal search. While active:
+
+  any character   narrow the search pattern
+  a label         jump to that match (also across windows)
+  <CR>            jump to the current (nearest) match
+  <Tab> <S-Tab>   cycle which match is current
+  <BS>            delete the last pattern character
+  <Esc>           cancel (aborts a pending operator too)
+
+Labels appear on the character AFTER each match. In normal mode every
+non-floating window of the tabpage is searched (`multi_window`); visual and
+operator-pending jumps stay in the current window — a motion cannot cross
+windows. In operator-pending mode the jump is a motion, exclusive by default
+(`jump.inclusive` forces it inclusive via |o_v|; `jump.offset` shifts the
+landing column).
+
+==============================================================================
+4. CHAR MOTIONS                                         *lvim-jump-char*
+
+With `char_motions.enabled`, f/F/t/T read one character (case-exact, like
+native) and show every in-reach occurrence in the motion's OWN direction
+(multi-line, within the visible range) — f/t only forward, F/T only backward.
+Every occurrence gets a jump label, the NEAREST included (highlighted as the
+current target), and the cursor does not move until you decide:
+
+  a label         land on that occurrence
+  <CR>            land on the nearest (the current-highlighted one)
+  f/t (the motion key) or ;   step to the next occurrence, labels follow
+  F/T (its upper twin) or ,   step back (reverse of the motion's direction)
+  <Esc>           cancel in place (the cursor never moved)
+  anything else   land on the NEAREST and replay the key, so `fx` then `dw`
+                  deletes from the first x exactly like native vim (after a
+                  step the key only exits and replays — no extra jump)
+
+A count jumps directly with no label prompt (`3fx` = third occurrence; a
+count past the last occurrence fails the motion, like native), and so do
+motions while a macro is recorded or executed. In operator-pending mode the
+motion consumes a SINGLE target: a label (or the motion key / <CR> for the
+nearest) lands it and the operator applies; forward f/t operate THROUGH the
+target character, like native |df| / |dt|; a cancel aborts the operator.
+After landing, `;` repeats and `,` reverses from the new position. Labels
+never use `char_motions.label_exclude` or the motion/repeat keys, so those
+keep their native meaning. Toggle at runtime with `:LvimJump char` or the
+API.
+
+==============================================================================
+5. TREESITTER SELECT                                    *lvim-jump-ts*
+
+`S` (normal, visual) labels the syntax-node ancestor ladder at the cursor:
+every distinct node range gets a fading tint (innermost strongest) and a
+label at its start. A label press VISUALLY SELECTS that node's exact range;
+<CR> selects the innermost node; <Esc> cancels. Needs a treesitter parser
+attached to the buffer.
+
+==============================================================================
+6. REMOTE OPERATOR JUMP                                 *lvim-jump-remote*
+
+`r` while an operator is pending: the operator is captured, a full jump runs
+(labels, any window), the operator is re-issued at the target where the text
+object is typed live, and the origin window/view is restored once the
+operation completes. Example: >
+  y r un<label> iw
+<
+yanks the word at the target and returns home. Works with any operator
+(d, c, gu, ...); for `c` the restore happens after leaving insert mode. The
+typed register and count are preserved. The TARGET window keeps the position
+the operation left behind — only the origin view is restored.
+
+==============================================================================
+7. API                                                  *lvim-jump-api*
+
+>lua
+  local jump = require("lvim-jump")
+
+  jump.setup(opts)      -- merge opts into the live config (idempotent)
+  jump.jump()           -- start a jump; returns the landed match or nil
+  jump.ts()             -- treesitter node selection
+  jump.remote()         -- remote operator jump (from an o-mode mapping)
+  jump.char_enable()    -- install the enhanced f/F/t/T/;/, maps
+  jump.char_disable()   -- restore the native motions
+  jump.char_toggle()    -- toggle; returns the new state
+<
+<Plug> seams (always defined, for `mappings.* = false` users):
+`<Plug>(lvim-jump)` (n/x/o), `<Plug>(lvim-jump-ts)` (n/x),
+`<Plug>(lvim-jump-remote)` (o).
+
+==============================================================================
+8. COMMAND                                              *lvim-jump-command*
+
+>
+  :LvimJump             status (labels, features, char-motion state)
+  :LvimJump jump        start a jump
+  :LvimJump ts          treesitter select
+  :LvimJump char        toggle the enhanced char motions
+<
+==============================================================================
+9. HIGHLIGHTS                                           *lvim-jump-highlights*
+
+Derived from the lvim-utils palette, re-derived on theme change, registered
+with `default = true` (a colorscheme or the user can override them):
+
+  LvimJumpMatch                      a match body (blue tint)
+  LvimJumpCurrent                    the current match (yellow tint)
+  LvimJumpLabel                      the label block (bold magenta tint)
+  LvimJumpTsRange1 .. LvimJumpTsRange5
+                                     ts-select node ranges, fading with depth
+  LvimJumpPrompt / LvimJumpPromptIcon / LvimJumpPromptCount
+                                     the command-line pattern prompt
+
+The dim backdrop uses lvim-utils.dim; the plugin's groups are preserved in
+the dim namespace so labels stay crisp on the dimmed text.
+
+Health check: `:checkhealth lvim-jump`.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
