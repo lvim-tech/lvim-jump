@@ -88,9 +88,9 @@ local function select_range(buf, r)
     api.nvim_win_set_cursor(0, { erow + 1, math.max(ecol, 0) })
 end
 
---- Draw the whole ladder: outermost ranges FIRST with the LOWEST priority so inner tints
---- paint over outer ones (the visual nesting), tint group faded by depth (innermost =
---- strongest), then every label on top.
+--- Draw the ladder: tint ONLY the current (innermost) node's exact span with the single
+--- `LvimJumpTsRange1` group (the default `<CR>` selection), then paint every ancestor's label on
+--- top. Ancestor levels are conveyed by their labels, NOT by stacking faded tints per nested range.
 ---@param buf integer
 ---@param chain LvimJumpTsNode[]
 ---@return nil

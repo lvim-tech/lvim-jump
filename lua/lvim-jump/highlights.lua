@@ -15,10 +15,6 @@ local ok_dim, dim = pcall(require, "lvim-utils.dim")
 
 local M = {}
 
---- Number of depth-faded ts-select range tints (deeper ancestors reuse the last).
----@type integer
-M.TS_DEPTHS = 5
-
 ---@type boolean one-time bind guard (setup() is idempotent)
 local bound = false
 
@@ -44,9 +40,7 @@ function M.setup()
             LvimJumpPromptIcon = "Special",
             LvimJumpPromptCount = "Comment",
         }
-        for i = 1, M.TS_DEPTHS do
-            links["LvimJumpTsRange" .. i] = "Visual"
-        end
+        links["LvimJumpTsRange1"] = "Visual"
         for name, target in pairs(links) do
             vim.api.nvim_set_hl(0, name, { link = target, default = true })
         end
@@ -71,11 +65,8 @@ function M.setup()
             LvimJumpPromptIcon = { fg = c.blue, bold = true },
             LvimJumpPromptCount = { fg = c.comment },
         }
-        -- ts-select node ranges fade with depth: innermost strongest (0.25) down to 0.10
-        for i = 1, M.TS_DEPTHS do
-            local t = 0.25 - (i - 1) * ((0.25 - 0.10) / (M.TS_DEPTHS - 1))
-            groups["LvimJumpTsRange" .. i] = { bg = mtint(c.blue, t) }
-        end
+        -- ts-select tints ONLY the current (innermost) node span (see ts.draw); one blue tint, no depth ladder
+        groups.LvimJumpTsRange1 = { bg = mtint(c.blue, 0.25) }
         return groups
     end)
 end

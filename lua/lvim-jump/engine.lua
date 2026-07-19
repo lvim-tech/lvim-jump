@@ -211,7 +211,10 @@ local function land(m, omode)
     end
     local line = api.nvim_buf_get_lines(m.buf, m.row, m.row + 1, false)[1] or ""
     local col = m.col + (config.jump.offset or 0)
-    col = math.max(0, math.min(col, math.max(#line - 1, 0)))
+    -- Clamp into the line, but to the START byte of the LAST character (not `#line - 1`), so a non-zero
+    -- jump.offset can't leave the cursor inside a multibyte char at EOL.
+    local last = line:find("[%z\1-\127\194-\244][\128-\191]*$")
+    col = math.max(0, math.min(col, (last or 1) - 1))
     api.nvim_win_set_cursor(m.win, { m.row + 1, col })
 end
 
@@ -272,10 +275,10 @@ local function loop(ctx)
             -- an assigned label ALWAYS means jump: label chars are excluded from pattern
             -- continuation by construction, so extending with this char would give 0 matches
             return by_label[ch]
-        elseif fn.keytrans(ch):sub(1, 1) ~= "<" then
-            -- a plain printable character (special keys keytrans to "<...>") extends the
-            -- pattern; anything special that isn't a control key is deliberately ignored
-            -- (mouse noise, stray function keys) so it can't corrupt the pattern
+        elseif ch == "<" or fn.keytrans(ch):sub(1, 1) ~= "<" then
+            -- a plain printable character extends the pattern; special keys keytrans to "<...>" and are
+            -- deliberately ignored (mouse noise, stray function keys). `<` is the one printable char keytrans
+            -- ESCAPES ("<lt>"), so it is exempted explicitly — otherwise a literal `<` could never be searched.
             chars[#chars + 1] = ch
         else
             goto continue

@@ -66,6 +66,18 @@ local attached = false
 ---@field trow integer 0-based row the cursor would LAND on (differs from row for t at col 0)
 ---@field tcol integer byte col the cursor would land on
 
+--- Back up from a 0-based BYTE column to the START byte of the character BEFORE it, so a landing column can
+--- never fall inside a multibyte character (nvim_win_set_cursor accepts a continuation-byte column verbatim).
+--- `col` is the byte index to back up from. Returns a 0-based byte column.
+---@param line string
+---@param col integer
+---@return integer
+local function char_start_before(line, col)
+    local s = line:sub(1, col)
+    local i = s:find("[%z\1-\127\194-\244][\128-\191]*$")
+    return (i or 1) - 1
+end
+
 --- Compute the landing position for match `m` under motion style `motion`/direction.
 --- t forward lands one char before the match — a match at col 0 wraps the target to the end
 --- of the previous line (the motion is multi-line here, unlike native t). T backward lands
@@ -78,17 +90,17 @@ local function target_pos(m, motion, forward)
     if motion == "f" then
         return m.row, m.col
     end
+    local line = api.nvim_buf_get_lines(m.buf, m.row, m.row + 1, false)[1] or ""
     if forward then
         if m.col > 0 then
-            return m.row, m.col - 1
+            return m.row, char_start_before(line, m.col)
         end
         -- char at col 0: land on the last cell of the previous line
         local prev = api.nvim_buf_get_lines(m.buf, m.row - 1, m.row, false)[1] or ""
-        return math.max(m.row - 1, 0), math.max(#prev - 1, 0)
+        return math.max(m.row - 1, 0), char_start_before(prev, #prev)
     end
-    -- T backward: after the char; clamp for a char sitting at EOL
-    local line = api.nvim_buf_get_lines(m.buf, m.row, m.row + 1, false)[1] or ""
-    return m.row, math.max(0, math.min(m.end_col, math.max(#line - 1, 0)))
+    -- T backward: after the char; clamp for a char sitting at EOL (to the last char's START byte).
+    return m.row, math.max(0, math.min(m.end_col, char_start_before(line, #line)))
 end
 
 --- All in-reach targets for `char` in the current window's visible range, targets computed
@@ -294,7 +306,7 @@ function M.motion(key)
     local direct = vim.v.count > 0 or fn.reg_recording() ~= "" or fn.reg_executing() ~= ""
     local omode = fn.mode(1):sub(1, 2) == "no"
     local ok, ch = pcall(fn.getcharstr)
-    if not ok or ch == nil or ch == "" or ch == ESC or fn.keytrans(ch):sub(1, 1) == "<" then
+    if not ok or ch == nil or ch == "" or ch == ESC or (ch ~= "<" and fn.keytrans(ch):sub(1, 1) == "<") then
         if omode then
             api.nvim_feedkeys(ESC, "n", false)
         end
