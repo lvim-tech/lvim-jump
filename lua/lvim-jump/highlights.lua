@@ -29,7 +29,7 @@ function M.setup()
     bound = true
     if ok_dim then
         -- keep every LvimJump* group crisp inside the dim backdrop namespace (see module header)
-        dim.preserve("^LvimJump")
+        dim.preserve("^LvimJump", { data = true }) -- the labels are what you aim at; a veil must never mute them
     end
     if not ok_hl then
         local links = {
