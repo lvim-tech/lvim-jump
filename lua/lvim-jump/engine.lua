@@ -202,7 +202,9 @@ local function land(m, omode)
     -- only in plain normal mode: in visual/operator-pending the fed "m'" keys would act on
     -- the selection/operator instead (and native motions don't push jumplist entries there)
     if fn.mode(1) == "n" then
-        pcall(vim.cmd, "normal! m'")
+        pcall(function()
+            vim.cmd("normal! m'")
+        end)
     end
     if omode and config.jump.inclusive then
         -- |o_v|: an exclusive characterwise motion becomes inclusive. The native seam for
