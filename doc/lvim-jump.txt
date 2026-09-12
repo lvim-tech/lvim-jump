@@ -27,7 +27,7 @@ There are no popups: the whole UI is extmark overlays over the real buffers
 plus a modal key loop. Highlights self-theme from the lvim-utils palette and
 re-derive on every colorscheme / palette change.
 
-Requires Neovim >= 0.10 and lvim-utils. Treesitter select works with any
+Requires Neovim >= 0.12 and lvim-utils. Treesitter select works with any
 buffer that has an attached parser (provisioned by lvim-ts in the lvim-tech
 stack).
 

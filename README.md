@@ -40,7 +40,7 @@ the `lvim-utils` palette and re-derive on every colorscheme / palette change.
 
 ## Installation
 
-Requires Neovim >= 0.10 and [lvim-utils](https://github.com/lvim-tech/lvim-utils)
+Requires Neovim >= 0.12 and [lvim-utils](https://github.com/lvim-tech/lvim-utils)
 (palette / merge / dim helpers). The treesitter select works with any attached parser;
 in the lvim-tech stack parsers are provisioned by
 [lvim-ts](https://github.com/lvim-tech/lvim-ts).
