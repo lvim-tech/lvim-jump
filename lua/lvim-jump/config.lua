@@ -104,6 +104,6 @@ return {
     },
     prompt = {
         enabled = true,
-        icon = "➤", -- the canonical lvim-tech pointer
+        icon = "󰅂", -- the canonical lvim-tech pointer
     },
 }

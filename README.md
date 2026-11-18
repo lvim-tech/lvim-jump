@@ -120,7 +120,7 @@ require("lvim-jump").setup({
     },
     prompt = {
         enabled = true, -- echo the typed pattern + match count in the command line
-        icon = "➤",
+        icon = "󰅂",
     },
 })
 ```

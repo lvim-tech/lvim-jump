@@ -70,7 +70,7 @@ Full default configuration: >lua
       },
       prompt = {
           enabled = true,      -- echo pattern + match count in the cmdline
-          icon = "➤",
+          icon = "󰅂",
       },
   })
 <

@@ -204,7 +204,7 @@ function M.dim_off()
     dimmed = {}
 end
 
---- Echo the live pattern prompt (`➤ pattern  N`). getcharstr blocks all normal redrawing,
+--- Echo the live pattern prompt (`󰅂 pattern  N`). getcharstr blocks all normal redrawing,
 --- so the engine calls this right before its explicit :redraw each iteration. Skipped with
 --- cmdheight=0 — there is no command line cell to draw into, and forcing a message there
 --- would open the message area over the jump overlays.
