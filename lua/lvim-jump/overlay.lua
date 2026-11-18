@@ -215,8 +215,19 @@ function M.prompt(pattern, count)
     if not config.prompt.enabled or vim.o.cmdheight == 0 then
         return
     end
+    -- In lvim-icons "material" mode the pointer glyph becomes its image cells, painted with the
+    -- image's own group (its fg IS the image id, so LvimJumpPromptIcon must not colour those bytes).
+    local icon, icon_hl = config.prompt.icon, "LvimJumpPromptIcon"
+    local ok_icons, iconlib = pcall(require, "lvim-utils.icons")
+    if ok_icons and iconlib.ui_text then
+        local t, h, img = iconlib.ui_text(icon, icon_hl)
+        if img then
+            icon, icon_hl = t, iconlib.on_bg({ image = true, hl = h }, icon_hl) or h
+        end
+    end
     api.nvim_echo({
-        { config.prompt.icon .. " ", "LvimJumpPromptIcon" },
+        { icon, icon_hl },
+        { " ", "LvimJumpPromptIcon" },
         { pattern, "LvimJumpPrompt" },
         { count > 0 and ("  " .. count) or "", "LvimJumpPromptCount" },
     }, false, {})
